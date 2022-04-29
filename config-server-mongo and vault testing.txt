@@ -1,0 +1,39 @@
+http://localhost:8081/gateway/dev/master
+
+https://cloud.spring.io/spring-cloud-static/spring-cloud-config/2.0.1.RELEASE/single/spring-cloud-config.html
+
+
+Prerequisite:
+    1. Install & kick start vault server -dev
+    2. Install and start the mongoDB
+
+
+Secret Creation in vault:
+    Run the below command in terminal
+    vault kv put secret/gateway db-uname=db-name-dev-vault db-pw=db-pw-dev-vault
+
+
+Now check if the secret is being added successfully.
+    vault kv get secret/gateway
+
+
+Open mongodb compass and create a collection called manman & add a document using the below json
+
+    {
+      "_id": {
+        "$oid": "626c3b5f2cb3cea88131556a"
+      },
+      "name": "gateway",
+      "label": "master",
+      "profile": "prod",
+      "source": {
+        "db-uname": "db-name-prod",
+        "db-pw": "db-pw-prod"
+      }
+    }
+
+
+Test:
+    Terminal:  curl -X "GET" "http://localhost:8081/gateway/dev/master" -H "hvs.NtkFozm8Zffl8TBQVQ206dUp" |jq
+    Postman:   http://localhost:8081/gateway/dev/master
+
