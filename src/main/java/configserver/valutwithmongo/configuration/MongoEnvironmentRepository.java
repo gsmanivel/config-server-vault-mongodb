@@ -28,7 +28,7 @@ public class MongoEnvironmentRepository implements EnvironmentRepository {
     public Environment findOne(String application, String profile, String label) {
         String[] profiles = StringUtils.commaDelimitedListToStringArray(profile);
 
-        Query query= new Query();
+        Query query= new Query();http://localhost:8081/hello
         query.addCriteria(Criteria.where("name").in(application));
         query.addCriteria(Criteria.where("profile").in(profiles));
         query.addCriteria(Criteria.where("label").in(label));
@@ -38,7 +38,7 @@ public class MongoEnvironmentRepository implements EnvironmentRepository {
             List<MongoPropertySource> sources = mongoTemplate.find(query,MongoPropertySource.class,"gateway");
             environment = new Environment(application, profiles, label, null, null);
             for(MongoPropertySource source : sources){
-                String sourceName = source.getProfile() + source.getName();
+                String sourceName = source.getName();
                 Map<String,Object> flatSource = mapFlattener.flatten(source.getSource());
                 PropertySource propertySource = new PropertySource(sourceName,flatSource);
                 environment.add(propertySource);
