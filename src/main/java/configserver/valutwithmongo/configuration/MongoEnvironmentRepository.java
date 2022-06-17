@@ -1,4 +1,12 @@
 package configserver.valutwithmongo.configuration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.config.YamlProcessor;
 import org.springframework.cloud.config.environment.Environment;
@@ -9,59 +17,111 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.util.StringUtils;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-
 public class MongoEnvironmentRepository implements EnvironmentRepository {
+
+    private static final String LABEL = "label";
+    private static final String PROFILE = "profile";
+    private static final String DEFAULT = "default";
+    private static final String DEFAULT_PROFILE = null;
+    private static final String DEFAULT_LABEL = null;
 
     private MongoTemplate mongoTemplate;
     private MapFlattener mapFlattener;
 
     public MongoEnvironmentRepository(MongoTemplate mongoTemplate) {
-        this.mongoTemplate=mongoTemplate;
-        this.mapFlattener= new MapFlattener();
+        this.mongoTemplate = mongoTemplate;
+        this.mapFlattener = new MapFlattener();
     }
 
     @Override
-    public Environment findOne(String application, String profile, String label) {
-        String[] profiles = StringUtils.commaDelimitedListToStringArray(profile);
-
-        Query query= new Query();http://localhost:8081/hello
-        query.addCriteria(Criteria.where("name").in(application));
-        query.addCriteria(Criteria.where("profile").in(profiles));
-        query.addCriteria(Criteria.where("label").in(label));
-        Environment environment;
-
-        try {
-            List<MongoPropertySource> sources = mongoTemplate.find(query,MongoPropertySource.class,"gateway");
-            environment = new Environment(application, profiles, label, null, null);
-            for(MongoPropertySource source : sources){
-                String sourceName = source.getName();
-                Map<String,Object> flatSource = mapFlattener.flatten(source.getSource());
-                PropertySource propertySource = new PropertySource(sourceName,flatSource);
-                environment.add(propertySource);
+    public Environment findOne(String name, String profile, String label) {
+        String[] profilesArr = StringUtils.commaDelimitedListToStringArray(profile);
+        List<String> profiles = new ArrayList<String>(Arrays.asList(profilesArr.clone()));
+        for (int i = 0; i < profiles.size(); i++) {
+            if (DEFAULT.equals(profiles.get(i))) {
+                profiles.set(i, DEFAULT_PROFILE);
             }
-        }catch (Exception e) {
-                throw new IllegalStateException("Can not load environment",e);
         }
+        profiles.add(DEFAULT_PROFILE); // Default configuration will have 'null' profile
+        profiles = sortedUnique(profiles);
+
+        List<String> labels = Arrays.asList(label, DEFAULT_LABEL); // Default configuration will have 'null' label
+        labels = sortedUnique(labels);
+
+        Query query = new Query();
+        query.addCriteria(Criteria.where(PROFILE).in(profiles.toArray()));
+        query.addCriteria(Criteria.where(LABEL).in(labels.toArray()));
+
+        Environment environment;
+        try {
+            List<MongoPropertySource> sources = mongoTemplate.find(query, MongoPropertySource.class, name);
+            sortSourcesByLabel(sources, labels);
+            sortSourcesByProfile(sources, profiles);
+            environment = new Environment(name, profilesArr, label, null, null);
+            for (MongoPropertySource propertySource : sources) {
+                String sourceName = generateSourceName(name, propertySource);
+                Map<String, Object> flatSource = mapFlattener.flatten(propertySource.getSource());
+                PropertySource propSource = new PropertySource(sourceName, flatSource);
+                environment.add(propSource);
+            }
+        }
+        catch (Exception e) {
+            throw new IllegalStateException("Cannot load environment", e);
+        }
+
         return environment;
     }
 
+    private ArrayList<String> sortedUnique(List<String> values) {
+        return new ArrayList<String>(new LinkedHashSet<String>(values));
+    }
+
+    private void sortSourcesByLabel(List<MongoPropertySource> sources,
+                                    final List<String> labels) {
+        Collections.sort(sources, new Comparator<MongoPropertySource>() {
+
+            @Override
+            public int compare(MongoPropertySource s1, MongoPropertySource s2) {
+                int i1 = labels.indexOf(s1.getLabel());
+                int i2 = labels.indexOf(s2.getLabel());
+                return Integer.compare(i1, i2);
+            }
+
+        });
+    }
+
+    private void sortSourcesByProfile(List<MongoPropertySource> sources,
+                                      final List<String> profiles) {
+        Collections.sort(sources, new Comparator<MongoPropertySource>() {
+
+            @Override
+            public int compare(MongoPropertySource s1, MongoPropertySource s2) {
+                int i1 = profiles.indexOf(s1.getProfile());
+                int i2 = profiles.indexOf(s2.getProfile());
+                return Integer.compare(i2, i1);
+            }
+
+        });
+    }
+
+    private String generateSourceName(String environmentName, MongoPropertySource source) {
+        String sourceName;
+        String profile = source.getProfile() != null ? source.getProfile() : DEFAULT;
+        String label = source.getLabel();
+        if (label != null) {
+            sourceName = String.format("%s-%s-%s", environmentName, profile, label);
+        }
+        else {
+            sourceName = String.format("%s-%s", environmentName, profile);
+        }
+        return sourceName;
+    }
+
     public static class MongoPropertySource {
-        private String name;
+
         private String profile;
         private String label;
-        private LinkedHashMap<String,Object> source = new LinkedHashMap<>();
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
+        private LinkedHashMap<String, Object> source = new LinkedHashMap<String, Object>();
 
         public String getProfile() {
             return profile;
@@ -86,12 +146,15 @@ public class MongoEnvironmentRepository implements EnvironmentRepository {
         public void setSource(LinkedHashMap<String, Object> source) {
             this.source = source;
         }
-    }
 
+    }
 
     private static class MapFlattener extends YamlProcessor {
-        public Map<String,Object> flatten(Map<String,Object> source){
+
+        public Map<String, Object> flatten(Map<String, Object> source) {
             return getFlattenedMap(source);
         }
+
     }
+
 }
