@@ -10,7 +10,6 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Configuration
-@Import(MongoEnvironmentRepositoryConfiguration.class)
 @EnableConfigServer
 public @interface EnableMongoConfigServer {
 }

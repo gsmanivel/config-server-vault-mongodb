@@ -1,0 +1,7 @@
+spring.cloud.vault:
+  authentication: APPROLE
+  app-role:
+    role-id: 071b3e3c-e6c4-03d4-b83a-9fd977a32fa6
+    secret-id: f04da668-4b97-8f73-406c-f461ab40977a
+    role: jenkins
+    app-role-path: secret/gateway

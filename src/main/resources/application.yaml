@@ -1,23 +1,6 @@
 
-
+spring:
+  profiles:
+    active: native
 server:
   port: 8085
-
-spring:
-  data:
-    mongodb:
-      uri: mongodb://localhost/manman
-
-
-#  profiles:
-#    active: vault
-#  application.name: gateway
-#
-#  cloud.config.server:
-#    vault:
-#      host: localhost
-#      port: 8200
-#      scheme: http
-#      kv-version: 2
-#      authentication: TOKEN
-#      token: hvs.c6xZkArADNmrOQXxhOYwBnZk
